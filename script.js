@@ -4,6 +4,93 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
+    // ---- Page Loader ----
+    const loader = document.getElementById('pageLoader');
+    const progress = document.getElementById('loaderProgress');
+
+    if (loader && progress) {
+        let loaded = 0;
+        const loadInterval = setInterval(() => {
+            loaded += Math.random() * 25 + 5;
+            if (loaded >= 100) {
+                loaded = 100;
+                clearInterval(loadInterval);
+                progress.style.width = '100%';
+                setTimeout(() => {
+                    loader.classList.add('hidden');
+                    document.body.classList.add('loaded');
+                }, 400);
+            }
+            progress.style.width = loaded + '%';
+        }, 200);
+    }
+
+    // ---- Floating Gold Particles ----
+    const canvas = document.getElementById('particlesCanvas');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let animFrame;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2 + 0.5;
+                this.speedY = -(Math.random() * 0.3 + 0.05);
+                this.speedX = (Math.random() - 0.5) * 0.2;
+                this.opacity = Math.random() * 0.4 + 0.1;
+                this.fadeSpeed = Math.random() * 0.003 + 0.001;
+                this.growing = Math.random() > 0.5;
+            }
+            update() {
+                this.y += this.speedY;
+                this.x += this.speedX;
+
+                if (this.growing) {
+                    this.opacity += this.fadeSpeed;
+                    if (this.opacity >= 0.5) this.growing = false;
+                } else {
+                    this.opacity -= this.fadeSpeed;
+                    if (this.opacity <= 0.05) this.reset();
+                }
+
+                if (this.y < -10) this.reset();
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(236, 192, 62, ${this.opacity})`;
+                ctx.fill();
+            }
+        }
+
+        const particleCount = Math.min(40, Math.floor(window.innerWidth / 30));
+        for (let i = 0; i < particleCount; i++) {
+            particles.push(new Particle());
+        }
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+            animFrame = requestAnimationFrame(animateParticles);
+        }
+        animateParticles();
+    }
+
     // ---- Custom Cursor ----
     const cursorDot = document.getElementById('cursorDot');
     const cursorRing = document.getElementById('cursorRing');
@@ -41,9 +128,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ---- Hero Parallax ----
+    const heroVisual = document.getElementById('heroVisual');
+    if (heroVisual && window.matchMedia('(min-width: 768px)').matches) {
+        window.addEventListener('mousemove', (e) => {
+            const x = (e.clientX / window.innerWidth - 0.5) * 20;
+            const y = (e.clientY / window.innerHeight - 0.5) * 15;
+            heroVisual.style.transform = `translateY(-50%) translate(${x}px, ${y}px)`;
+        }, { passive: true });
+    }
+
     // ---- Navigation Scroll ----
     const nav = document.getElementById('nav');
-    let lastScroll = 0;
 
     window.addEventListener('scroll', () => {
         const scrollY = window.scrollY;
@@ -52,7 +148,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             nav.classList.remove('scrolled');
         }
-        lastScroll = scrollY;
     }, { passive: true });
 
     // ---- Mobile Menu ----
@@ -85,7 +180,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const cards = carouselTrack.querySelectorAll('.product-card');
         let currentIndex = 0;
         let visibleCards = getVisibleCards();
-        const totalSlides = Math.max(1, cards.length - visibleCards + 1);
 
         function getVisibleCards() {
             const width = window.innerWidth;
@@ -184,6 +278,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         createDots();
         updateCarousel();
+
+        // Auto-play carousel
+        let autoPlay = setInterval(() => {
+            const slides = Math.max(1, cards.length - visibleCards + 1);
+            currentIndex = (currentIndex + 1) % slides;
+            updateCarousel();
+        }, 5000);
+
+        // Pause on hover
+        carouselTrack.addEventListener('mouseenter', () => clearInterval(autoPlay));
+        carouselTrack.addEventListener('mouseleave', () => {
+            autoPlay = setInterval(() => {
+                const slides = Math.max(1, cards.length - visibleCards + 1);
+                currentIndex = (currentIndex + 1) % slides;
+                updateCarousel();
+            }, 5000);
+        });
     }
 
     // ---- Cart System ----
@@ -221,14 +332,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function updateCart() {
-        // Update count
         const count = cart.length;
         if (cartCount) {
             cartCount.textContent = count;
             cartCount.classList.toggle('show', count > 0);
         }
 
-        // Update items
         if (cartItems) {
             if (count === 0) {
                 cartItems.innerHTML = `
@@ -254,7 +363,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `).join('');
 
-                // Remove listeners
                 cartItems.querySelectorAll('.cart-item-remove').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const idx = parseInt(e.target.dataset.index);
@@ -281,7 +389,6 @@ document.addEventListener('DOMContentLoaded', () => {
             updateCart();
             openCart();
 
-            // Brief visual feedback
             btn.style.background = '#27ae60';
             btn.querySelector('span').textContent = 'Ajouté !';
             setTimeout(() => {
@@ -303,6 +410,38 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ---- Animated Number Counter ----
+    function animateCounter(el) {
+        const target = parseInt(el.dataset.count);
+        const duration = 2000;
+        const startTime = performance.now();
+
+        function updateCount(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            // Ease out cubic
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const current = Math.floor(eased * target);
+
+            if (target >= 1000) {
+                el.textContent = current.toLocaleString('fr-FR');
+            } else {
+                el.textContent = current;
+            }
+
+            if (progress < 1) {
+                requestAnimationFrame(updateCount);
+            } else {
+                if (target >= 1000) {
+                    el.textContent = target.toLocaleString('fr-FR');
+                } else {
+                    el.textContent = target;
+                }
+            }
+        }
+        requestAnimationFrame(updateCount);
+    }
+
     // ---- Scroll Reveal Animations ----
     const revealElements = document.querySelectorAll('.reveal, .reveal-left, .reveal-up');
 
@@ -320,10 +459,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     revealElements.forEach(el => revealObserver.observe(el));
 
+    // Counter observer
+    const statNumbers = document.querySelectorAll('.stat-number[data-count]');
+    const counterObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                animateCounter(entry.target);
+                counterObserver.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.5 });
+
+    statNumbers.forEach(el => counterObserver.observe(el));
+
     // ---- Smooth Scroll for anchor links ----
     document.querySelectorAll('a[href^="#"]').forEach(link => {
         link.addEventListener('click', (e) => {
-            const target = document.querySelector(link.getAttribute('href'));
+            const href = link.getAttribute('href');
+            if (href === '#') return;
+            const target = document.querySelector(href);
             if (target) {
                 e.preventDefault();
                 const offset = nav ? nav.offsetHeight : 0;
@@ -332,5 +486,25 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
+    // ---- Active nav link on scroll ----
+    const sections = document.querySelectorAll('section[id]');
+    const navLinks = document.querySelectorAll('.nav-links a');
+
+    window.addEventListener('scroll', () => {
+        let current = '';
+        sections.forEach(section => {
+            const sectionTop = section.offsetTop - 150;
+            if (window.scrollY >= sectionTop) {
+                current = section.getAttribute('id');
+            }
+        });
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('href') === '#' + current) {
+                link.classList.add('active');
+            }
+        });
+    }, { passive: true });
 
 });
